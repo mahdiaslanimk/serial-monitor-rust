@@ -3,6 +3,7 @@ use eframe::egui::{
     Vec2,
 };
 use eframe::epaint::StrokeKind;
+use egui_plot::{LineStyle, MarkerShape};
 
 // Apple system colors – Default (light) variant
 pub const COLORS_LIGHT: [Color32; 12] = [
@@ -88,6 +89,8 @@ pub fn color_picker_window(
     ctx: &egui::Context,
     color: &mut Color32,
     value: &mut f32,
+    line_style: &mut LineStyle,
+    marker_shape: &mut Option<MarkerShape>,
     dark_mode: bool,
 ) -> bool {
     let mut save_button = false;
@@ -167,6 +170,49 @@ pub fn color_picker_window(
                     // Update the selected color based on the slider position
                     *color = hsv_to_rgb(*value * 360.0, 1.0, 1.0); // Update color
                 }
+                ui.add_space(5.0);
+                ui.separator();
+                ui.label("Marker Shape:");
+                let all_shapes: &[(&str, Option<MarkerShape>)] = &[
+                    ("\u{25E6} None", None),
+                    ("\u{25CF} Circle", Some(MarkerShape::Circle)),
+                    ("\u{25C6} Diamond", Some(MarkerShape::Diamond)),
+                    ("\u{25A0} Square", Some(MarkerShape::Square)),
+                    ("\u{2715} Cross", Some(MarkerShape::Cross)),
+                    ("\u{002B} Plus", Some(MarkerShape::Plus)),
+                    ("\u{25B2} Up", Some(MarkerShape::Up)),
+                    ("\u{25BC} Down", Some(MarkerShape::Down)),
+                    ("\u{25C4} Left", Some(MarkerShape::Left)),
+                    ("\u{25BA} Right", Some(MarkerShape::Right)),
+                    ("\u{2217} Asterisk", Some(MarkerShape::Asterisk)),
+                ];
+                ui.horizontal_wrapped(|ui| {
+                    for (lbl, shape) in all_shapes {
+                        if ui
+                            .selectable_label(*marker_shape == *shape, *lbl)
+                            .clicked()
+                        {
+                            *marker_shape = *shape;
+                        }
+                    }
+                });
+                ui.add_space(5.0);
+                ui.separator();
+                ui.label("Line Style:");
+                ui.horizontal(|ui| {
+                    let is_solid = matches!(line_style, LineStyle::Solid);
+                    let is_dashed = matches!(line_style, LineStyle::Dashed { .. });
+                    let is_dotted = matches!(line_style, LineStyle::Dotted { .. });
+                    if ui.selectable_label(is_solid, "\u{2014}\u{2014} Solid").clicked() {
+                        *line_style = LineStyle::Solid;
+                    }
+                    if ui.selectable_label(is_dashed, "\u{254C}\u{254C} Dashed").clicked() {
+                        *line_style = LineStyle::dashed_loose();
+                    }
+                    if ui.selectable_label(is_dotted, "\u{00B7}\u{00B7}\u{00B7} Dotted").clicked() {
+                        *line_style = LineStyle::dotted_loose();
+                    }
+                });
                 ui.add_space(5.0);
                 ui.centered_and_justified(|ui| {
                     if ui.button("Exit").clicked() {

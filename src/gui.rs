@@ -25,7 +25,7 @@ use eframe::{egui, Storage};
 use egui::ThemePreference;
 use egui_file_dialog::information_panel::InformationPanel;
 use egui_file_dialog::FileDialog;
-use egui_plot::{log_grid_spacer, GridMark, Legend, Line, Plot, PlotPoints};
+use egui_plot::{log_grid_spacer, GridMark, Legend, Line, LineStyle, MarkerShape, Plot, PlotPoints, Points};
 use preferences::Preferences;
 #[cfg(feature = "self_update")]
 use self_update::update::Release;
@@ -153,6 +153,8 @@ pub struct MyApp {
     eol: String,
     colors: Vec<Color32>,
     color_vals: Vec<f32>,
+    line_styles: Vec<LineStyle>,
+    marker_shapes: Vec<Option<MarkerShape>>,
     labels: Vec<String>,
     show_color_window: ColorWindow,
     show_sent_cmds: bool,
@@ -257,6 +259,8 @@ impl MyApp {
             eol: "\\r\\n".to_string(),
             colors: vec![get_colors(initial_dark_mode)[0]],
             color_vals: vec![0.0],
+            line_styles: vec![LineStyle::Solid],
+            marker_shapes: vec![None],
             labels: vec!["Column 0".to_string()],
             history: vec![],
             index: 0,
@@ -348,6 +352,10 @@ impl MyApp {
                                 .collect();
                             self.color_vals =
                                 (0..max(self.labels.len(), 1)).map(|_| 0.0).collect();
+                            self.line_styles =
+                                (0..max(self.labels.len(), 1)).map(|_| LineStyle::Solid).collect();
+                            self.marker_shapes =
+                                (0..max(self.labels.len(), 1)).map(|_| None).collect();
                             // Close color picker if its index is now out of range
                             if let ColorWindow::ColorIndex(idx) = self.show_color_window {
                                 if idx >= self.colors.len() {
@@ -366,6 +374,8 @@ impl MyApp {
                                 .map(|i| palette[i % palette.len()])
                                 .collect();
                             self.color_vals = (0..max(self.labels.len(), 1)).map(|_| 0.0).collect();
+                            self.line_styles = (0..max(self.labels.len(), 1)).map(|_| LineStyle::Solid).collect();
+                            self.marker_shapes = (0..max(self.labels.len(), 1)).map(|_| None).collect();
                         }
                     }
                     if self.serial_devices.number_of_plots[self.device_idx] > 0 {
@@ -430,8 +440,28 @@ impl MyApp {
                                                             .collect(),
                                                     ),
                                                 )
-                                                .color(self.colors[i]),
+                                                .color(self.colors[i])
+                                                .style(self.line_styles.get(i).copied().unwrap_or(LineStyle::Solid)),
                                             );
+                                            if let Some(shape) = self.marker_shapes.get(i).and_then(|s| *s) {
+                                                signal_plot_ui.points(
+                                                    Points::new(
+                                                        format!("markers_{i}"),
+                                                        PlotPoints::Owned(
+                                                            graph
+                                                                .iter()
+                                                                .skip(window)
+                                                                .step_by(n)
+                                                                .cloned()
+                                                                .collect(),
+                                                        ),
+                                                    )
+                                                    .name("")
+                                                    .shape(shape)
+                                                    .color(self.colors[i])
+                                                    .radius(4.0),
+                                                );
+                                            }
                                         }
                                     }
                                 });
@@ -1145,11 +1175,13 @@ impl MyApp {
         match self.show_color_window {
             ColorWindow::NoShow => {}
             ColorWindow::ColorIndex(index) => {
-                if index < self.colors.len() && index < self.color_vals.len() {
+                if index < self.colors.len() && index < self.color_vals.len() && index < self.line_styles.len() && index < self.marker_shapes.len() {
                     if color_picker_window(
                         ui.ctx(),
                         &mut self.colors[index],
                         &mut self.color_vals[index],
+                        &mut self.line_styles[index],
+                        &mut self.marker_shapes[index],
                         self.gui_conf.dark_mode,
                     ) {
                         self.show_color_window = ColorWindow::NoShow;
