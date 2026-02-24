@@ -150,7 +150,7 @@ fn main_thread(
                                     if let Ok(mut gui_data) = data_lock.write() {
                                         gui_data.prints = vec!["".to_string(); max(split_data.len(), 1)];
                                         gui_data.plots = (0..max(split_data.len(), 1))
-                                            .map(|i| (format!("Column {i}"), vec![]))
+                                            .map(|i| (cli_column_labels.get(i).cloned().unwrap_or_else(|| format!("Column {i}")), vec![]))
                                             .collect();
                                     }
                                 }

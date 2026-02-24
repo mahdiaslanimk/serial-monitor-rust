@@ -163,6 +163,7 @@ pub struct MyApp {
     init: bool,
     prev_dark_mode: bool,
     cli_column_colors: Vec<egui::Color32>,
+    preset_name: String,
     #[cfg(feature = "self_update")]
     new_release: Option<Release>,
 }
@@ -267,6 +268,7 @@ impl MyApp {
             file_opened: false,
             prev_dark_mode: initial_dark_mode,
             cli_column_colors,
+            preset_name: "".to_string(),
             #[cfg(feature = "self_update")]
             new_release: None,
             settings_window_open: false,
@@ -1110,7 +1112,7 @@ impl MyApp {
             ui.label(format!("Detected {} Datasets:", self.labels.len()));
         }
         ui.add_space(5.0);
-        for i in 0..self.labels.len().min(10) {
+        for i in 0..self.labels.len() {
             // if init, set names to what has been stored in the device last time
             if self.init {
                 // self.names_tx.send(self.labels.clone()).expect("Failed to send names");
@@ -1158,8 +1160,80 @@ impl MyApp {
             }
         }
 
-        if self.labels.len() > 10 {
-            ui.label("Only renaming up to 10 Datasets is currently supported.");
+        ui.add_space(10.0);
+        ui.separator();
+        ui.add_space(5.0);
+        ui.label("Label Presets");
+        ui.add_space(5.0);
+
+        // Save current labels as a new preset
+        ui.horizontal(|ui| {
+            ui.add(
+                egui::TextEdit::singleline(&mut self.preset_name)
+                    .hint_text("Preset name…")
+                    .desired_width(0.65 * RIGHT_PANEL_WIDTH),
+            );
+            let can_save = !self.preset_name.trim().is_empty() && !self.labels.is_empty();
+            if ui
+                .add_enabled(can_save, egui::Button::new("Save"))
+                .on_hover_text("Save the current column labels as a named preset.")
+                .clicked()
+            {
+                let name = self.preset_name.trim().to_string();
+                // Overwrite if a preset with the same name already exists
+                if let Some(existing) = self
+                    .gui_conf
+                    .label_presets
+                    .iter_mut()
+                    .find(|(n, _)| n == &name)
+                {
+                    existing.1 = self.labels.clone();
+                } else {
+                    self.gui_conf
+                        .label_presets
+                        .push((name, self.labels.clone()));
+                }
+                self.preset_name.clear();
+            }
+        });
+
+        // List existing presets
+        let mut preset_to_delete: Option<usize> = None;
+        for (idx, (name, preset_labels)) in self.gui_conf.label_presets.iter().enumerate() {
+            ui.horizontal(|ui| {
+                ui.label(
+                    egui::RichText::new(format!("{}", egui_phosphor::regular::TAG))
+                );
+                ui.label(name);
+                let apply_text = format!(
+                    "Apply to first {} column(s)",
+                    preset_labels.len()
+                );
+                if ui
+                    .button("Apply")
+                    .on_hover_text(apply_text)
+                    .clicked()
+                {
+                    // Extend self.labels if needed, then overwrite up to preset length
+                    for (i, lbl) in preset_labels.iter().enumerate() {
+                        if i < self.labels.len() {
+                            self.labels[i] = lbl.clone();
+                        }
+                    }
+                }
+                if ui
+                    .button(egui::RichText::new(
+                        egui_phosphor::regular::TRASH.to_string(),
+                    ))
+                    .on_hover_text("Delete this preset.")
+                    .clicked()
+                {
+                    preset_to_delete = Some(idx);
+                }
+            });
+        }
+        if let Some(idx) = preset_to_delete {
+            self.gui_conf.label_presets.remove(idx);
         }
     }
 
